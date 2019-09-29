@@ -29,6 +29,17 @@ pub struct SLPSend {
     pub output_quantities: Vec<u64>,
 }
 
+#[derive(Clone, Debug)]
+pub struct SLPGenesis {
+    pub token_type: u8,
+    pub token_ticker: Vec<u8>,
+    pub token_name: Vec<u8>,
+    pub token_document_url: Vec<u8>,
+    pub token_document_hash: Vec<u8>,
+    pub decimals: u8,
+    pub mint_baton_vout: Option<u8>,
+    pub initial_token_mint_quantity: u64,
+}
 
 impl Output for P2PKHOutput {
     fn value(&self) -> u64 {
@@ -141,6 +152,42 @@ impl SLPSend {
             data.write_u64::<BigEndian>(*quantity).unwrap();
             data
         }));
+        OpReturnOutput {
+            is_minimal_push: false,
+            pushes: script_ops,
+        }
+    }
+}
+
+impl SLPGenesis {
+    /* <lokad_id: 'SLP\x00'> (4 bytes, ascii)1
+     * <token_type: 1> (1 to 2 byte integer)
+     * <transaction_type: 'GENESIS'> (4 bytes, ascii)
+     * <token_ticker> (0 to ∞ bytes, suggested utf-8)
+     * <token_name> (0 to ∞ bytes, suggested utf-8)
+     * <token_document_url> (0 to ∞ bytes, suggested ascii)
+     * <token_document_hash> (0 bytes or 32 bytes)
+     * <decimals> (1 byte in range 0x00-0x09)
+     * <mint_baton_vout> (0 bytes, or 1 byte in range 0x02-0xff)
+     * <initial_token_mint_quantity> (8 byte integer) */
+
+    pub fn into_output(self) -> OpReturnOutput {
+        let script_ops = vec![
+            b"SLP\0".to_vec(),
+            vec![self.token_type],
+            b"GENESIS".to_vec(),
+            self.token_ticker,
+            self.token_name,
+            self.token_document_url,
+            self.token_document_hash,
+            vec![self.decimals],
+            if let Some(mint_baton_vout) = self.mint_baton_vout {
+                vec![mint_baton_vout]
+            } else {
+                vec![]
+            },
+            self.initial_token_mint_quantity.to_be_bytes().to_vec(),
+        ];
         OpReturnOutput {
             is_minimal_push: false,
             pushes: script_ops,
