@@ -9,11 +9,11 @@ pub enum Op {
 }
 
 impl Op {
-    pub fn code(&self) -> u8 {
+    pub fn code(&self, is_slp_safe: bool) -> u8 {
         match self {
             Op::Push(vec) => {
                 match vec.len() {
-                    0 ..= 0x4b        => vec.len() as u8,
+                    0 ..= 0x4b if !is_slp_safe => vec.len() as u8,
                     0 ..= 0xff        => 0x4c,
                     0 ..= 0xffff      => 0x4d,
                     0 ..= 0xffff_ffff => 0x4e,
@@ -24,14 +24,15 @@ impl Op {
         }
     }
 
-    pub fn write_to_stream<W: io::Write>(&self, write: &mut W, is_minimal_push: bool) -> io::Result<()> {
+    pub fn write_to_stream<W: io::Write>(&self, write: &mut W, is_minimal_push: bool,
+                                         is_slp_safe: bool) -> io::Result<()> {
         if let Op::Push(vec) = self {
             if vec.len() == 1 && is_minimal_push && vec[0] > 0 && vec[0] <= 16 {
                 return write.write_u8(vec[0] + 0x50)
             }
-            write.write_u8(self.code())?;
+            write.write_u8(self.code(is_slp_safe))?;
             match vec.len() {
-                0 ..= 0x4b => {},
+                0 ..= 0x4b if !is_slp_safe => {},
                 len @ (0 ..= 0xff) => { write.write_u8(len as u8)? },
                 len @ (0 ..= 0xffff) => { write.write_u16::<LittleEndian>(len as u16)? },
                 len @ (0 ..= 0xffff_ffff) => { write.write_u32::<LittleEndian>(len as u32)? },
@@ -39,7 +40,7 @@ impl Op {
             };
             write.write(vec)?;
         } else {
-            write.write_u8(self.code())?;
+            write.write_u8(self.code(is_slp_safe))?;
         }
         Ok(())
     }
@@ -69,6 +70,10 @@ impl Script {
 
     pub fn new(ops: Vec<Op>) -> Self {
         Script { ops, is_minimal_push: true, is_slp_safe: false, serialized: None }
+    }
+
+    pub fn new_slp_safe(ops: Vec<Op>) -> Self {
+        Script { ops, is_minimal_push: true, is_slp_safe: true, serialized: None }
     }
 
     pub fn new_non_minimal_push(ops: Vec<Op>) -> Self {
@@ -136,7 +141,7 @@ impl Script {
         }
         let mut vec = Vec::new();
         for op in self.ops.iter() {
-            op.write_to_stream(&mut vec, self.is_minimal_push).unwrap();
+            op.write_to_stream(&mut vec, self.is_minimal_push, self.is_slp_safe).unwrap();
         }
         vec
     }
@@ -152,7 +157,7 @@ impl Script {
                     continue;
                 }
             }
-            op.write_to_stream(&mut vec, self.is_minimal_push).unwrap();
+            op.write_to_stream(&mut vec, self.is_minimal_push, self.is_minimal_push).unwrap();
         }
         vec
     }
