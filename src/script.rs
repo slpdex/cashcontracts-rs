@@ -73,7 +73,7 @@ impl Script {
     }
 
     pub fn new_slp_safe(ops: Vec<Op>) -> Self {
-        Script { ops, is_minimal_push: true, is_slp_safe: true, serialized: None }
+        Script { ops, is_minimal_push: false, is_slp_safe: true, serialized: None }
     }
 
     pub fn new_non_minimal_push(ops: Vec<Op>) -> Self {
