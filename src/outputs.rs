@@ -145,7 +145,7 @@ impl SLPSend {
             b"SLP\0".to_vec(),
             vec![self.token_type],
             b"SEND".to_vec(),
-            self.token_id.to_vec(),
+            self.token_id.iter().cloned().rev().collect(),
         ];
         script_ops.extend(self.output_quantities.iter().map(|quantity| {
             let mut data = Vec::new();

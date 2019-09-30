@@ -104,6 +104,10 @@ impl TxOutput {
         write.write(&script)?;
         Ok(())
     }
+
+    pub fn script(&self) -> &Script {
+        return &self.script;
+    }
 }
 
 impl Tx {
