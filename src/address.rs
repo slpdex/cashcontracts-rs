@@ -177,7 +177,7 @@ fn b32_decode(string: &str) -> Result<Vec<u8>, AddressError> {
         .collect()
 }
 
-fn to_cash_addr(prefix: &str, addr_type: AddressType, addr_bytes: &[u8; 20]) -> String {
+pub fn to_cash_addr(prefix: &str, addr_type: AddressType, addr_bytes: &[u8; 20]) -> String {
     let version = addr_type as u8;
     let payload = convert_bits(
         [version].iter().chain(addr_bytes.iter()).cloned(),
@@ -189,7 +189,7 @@ fn to_cash_addr(prefix: &str, addr_type: AddressType, addr_bytes: &[u8; 20]) -> 
     String::from(prefix) + ":" + &b32_encode(payload.iter().cloned().chain(checksum.iter().cloned()))
 }
 
-fn from_cash_addr(addr_string: &str) -> Result<([u8; 20], AddressType, String), AddressError> {
+pub fn from_cash_addr(addr_string: &str) -> Result<([u8; 20], AddressType, String), AddressError> {
     let addr_string = addr_string.to_ascii_lowercase();
     let (prefix, payload_base32) = if let Some(pos) = addr_string.find(":") {
         let (prefix, payload_base32) = addr_string.split_at(pos + 1);
