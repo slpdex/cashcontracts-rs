@@ -45,6 +45,15 @@ pub fn tx_hash_to_hex(tx_hash: &[u8; 32]) -> String {
     hex::encode(&tx_hash.iter().rev().cloned().collect::<Vec<_>>())
 }
 
+impl TxOutpoint {
+    pub fn bytes(&self) -> [u8; 36] {
+        let mut key = [0u8; 32 + 4];
+        key[..32].copy_from_slice(&self.tx_hash);
+        key[32..].copy_from_slice(&self.vout.to_le_bytes());
+        key
+    }
+}
+
 impl TxInput {
     pub fn new(outpoint: TxOutpoint,
                script: Script,
