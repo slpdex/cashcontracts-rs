@@ -49,7 +49,7 @@ pub fn write_var_str<W: io::Write>(write: &mut W, string: &[u8]) -> io::Result<(
     Ok(())
 }
 
-fn encode_minimally(vec: &mut Vec<u8>) {
+pub fn encode_minimally(vec: &mut Vec<u8>) {
     // If the last byte is not 0x00 or 0x80, we are minimally encoded.
     if let Some(&last) = vec.last() {
         if last & 0x7f != 0 {
@@ -89,7 +89,10 @@ fn encode_minimally(vec: &mut Vec<u8>) {
 
 pub fn encode_int(int: i32) -> Vec<u8> {
     let mut vec = Vec::new();
-    vec.write_i32::<LittleEndian>(int).unwrap();
+    vec.write_i32::<LittleEndian>(int.abs()).unwrap();
+    if int < 0 {
+        vec.write_u8(0x80).unwrap();
+    }
     encode_minimally(&mut vec);
     vec
 }
@@ -103,11 +106,20 @@ pub fn encode_bool(b: bool) -> Vec<u8> {
 }
 
 pub fn vec_to_int(vec: &[u8]) -> i32 {
+    if vec.len() == 0 {
+        return 0;
+    }
     let mut shift = 0;
     let mut int = 0;
-    for value in vec {
-        int += (*value as i32) << (shift);
-        shift += 8;
+    let sign_bit = vec[vec.len() - 1] & 0x80;
+    for (i, value) in vec.iter().enumerate() {
+        if i == vec.len() - 1 && sign_bit != 0 {
+            int += ((*value ^ sign_bit) as i32) << (shift);
+            int *= -1;
+        } else {
+            int += (*value as i32) << (shift);
+            shift += 8;
+        }
     }
     int
 }
