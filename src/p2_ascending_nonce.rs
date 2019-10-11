@@ -8,6 +8,7 @@ use std::convert::TryInto;
 
 #[derive(Clone, Debug)]
 pub struct P2AscendingNonce {
+    pub lokad_id: Vec<u8>,
     pub old_value: u64,
     pub owner_pk: Vec<u8>,
     pub old_nonce: i32,
@@ -31,8 +32,8 @@ impl P2AscendingNonce {
         let sign_byte = if self.old_nonce < 0 { 0x80 } else { 0 };
         let mut ops = vec![
             Push([
-                [sign_byte, 0, 0, 0],
                 self.old_nonce.abs().to_le_bytes(),
+                [0, 0, 0, sign_byte],
             ].concat().to_vec()),
             Push(self.owner_pk.clone()),
             Code(OpRot),
@@ -78,9 +79,8 @@ impl P2AscendingNonce {
             Code(OpNum2Bin),
             Push(encode_int(4)),  // <preimageprefix>
             Code(OpRoll),
-            Code(OpDup),
             Code(OpSize),
-            Push(encode_int(116)),  // (=preimage prefix size)
+            Push(encode_int(4 + 32 + 32 + (32 + 4) + 1 + 9)),  // (=preimage prefix size)
             Code(OpNumEqualVerify),
             Code(OpFromAltStack),
             Code(OpCat),
@@ -91,7 +91,6 @@ impl P2AscendingNonce {
             Code(OpSwap),
             Code(OpCat),
             Code(OpRot),
-            Code(OpDup),
             Code(OpSize),
             Push(vec![8]),  // (=preimage suffix size)
             Code(OpNumEqualVerify),
@@ -115,7 +114,9 @@ impl P2AscendingNonce {
             Code(OpSwap),
             Code(OpCat),
             Code(OpFromAltStack),
-            Code(OpCheckDataSig),
+            Code(OpCheckDataSigVerify),
+            Push(self.lokad_id.clone()),
+            Code(OpEqual),
         ]);
         ops.push(Code(OpElse));
         ops.append(&mut vec![
@@ -153,6 +154,7 @@ impl Output for P2AscendingNonce {
                 let script_code = self.script_code().to_vec_sig();
                 let nonce_cutoff = 9;  // len("PUSH <oldNonce>")
                 Script::new(vec![
+                    Op::Push(self.lokad_id.clone()),
                     Op::Push(owner_sig.clone()),  // ownerDataSig
                     Op::Push({  // outputsPost
                         let mut outputs_post = Vec::new();
@@ -202,7 +204,7 @@ impl Output for P2AscendingNonce {
                     Op::Push(encode_int(self.old_value.try_into().unwrap())),
                     Op::Push(script_code[nonce_cutoff..].to_vec()),
                     Op::Push(encode_int(*new_nonce)),
-                    Op::Push(encode_int(1)),
+                    Op::Push(vec![1]),
                 ])
             },
             P2pk => {
