@@ -22,6 +22,7 @@ pub enum P2AscendingNonceSpendParams {
         payment_amount: i32,
         new_nonce: i32,
         owner_sig: Vec<u8>,
+        is_terminal: bool,
     },
     NonceRefill {
         payment_amount: i32,
@@ -80,6 +81,7 @@ impl P2AscendingNonce {
                 Code(OpTuck),
                 Code(OpCat),
                 Code(OpHash160),
+                Code(OpSwap),
                 Code(OpToAltStack),
                 Code(OpToAltStack),
                 Code(Op2Dup),
@@ -218,12 +220,12 @@ impl Output for P2AscendingNonce {
         let spend_params = self.spend_params.as_ref().expect("must provide spend params!");
         match spend_params {
             NonceRedeem { .. } | NonceRefill { .. } => {
-                let (payment_amount, new_nonce, owner_sig) = match spend_params {
-                    NonceRedeem { payment_amount, new_nonce, owner_sig } => {
-                        (*payment_amount, *new_nonce, owner_sig.clone())
+                let (payment_amount, new_nonce, owner_sig, is_terminal) = match spend_params {
+                    NonceRedeem { payment_amount, new_nonce, owner_sig, is_terminal } => {
+                        (*payment_amount, *new_nonce, owner_sig.clone(), *is_terminal)
                     },
                     NonceRefill { payment_amount } => {
-                        (*payment_amount, self.old_nonce, vec![])
+                        (*payment_amount, self.old_nonce, vec![], false)
                     },
                     P2pk => unreachable!(),
                 };
@@ -236,7 +238,7 @@ impl Output for P2AscendingNonce {
                     Op::Push(owner_sig.clone()),  // ownerDataSig
                     Op::Push({  // outputsPost
                         let mut outputs_post = Vec::new();
-                        outputs[1..].iter()
+                        outputs[if is_terminal { 0 } else { 1 }..].iter()
                             .for_each(|tx_output| {
                                 tx_output.write_to_stream(&mut outputs_post).unwrap()
                             });
