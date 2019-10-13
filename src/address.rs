@@ -1,7 +1,7 @@
 use crate::hash::hash160;
 
-const CHARSET: &'static [u8] = b"qpzry9x8gf2tvdw0s3jn54khce6mua7l";
-const DEFAULT_PREFIX: &'static str = "bitcoincash";
+const CHARSET: &[u8] = b"qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+const DEFAULT_PREFIX: &str = "bitcoincash";
 
 #[derive(Clone, Debug)]
 pub enum AddressError {
@@ -90,7 +90,7 @@ impl Address {
             cash_addr: to_cash_addr(&prefix, self.addr_type(), self.bytes()),
             addr_type: self.addr_type,
             prefix,
-            bytes: self.bytes.clone(),
+            bytes: self.bytes,
         }
     }
 }
@@ -128,12 +128,12 @@ fn poly_mod(values: impl Iterator<Item=u8>) -> u64 {
     let mut c = 1;
     for value in values {
         let c0 = (c >> 35) as u8;
-        c = ((c & 0x07ffffffffu64) << 5u64) ^ (value as u64);
-        if c0 & 0x01 != 0 { c ^= 0x98f2bc8e61 }
-        if c0 & 0x02 != 0 { c ^= 0x79b76d99e2 }
-        if c0 & 0x04 != 0 { c ^= 0xf33e5fb3c4 }
-        if c0 & 0x08 != 0 { c ^= 0xae2eabe2a8 }
-        if c0 & 0x10 != 0 { c ^= 0x1e4f43e470 }
+        c = ((c & 0x07_ffff_ffffu64) << 5u64) ^ (value as u64);
+        if c0 & 0x01 != 0 { c ^= 0x98_f2bc_8e61 }
+        if c0 & 0x02 != 0 { c ^= 0x79_b76d_99e2 }
+        if c0 & 0x04 != 0 { c ^= 0xf3_3e5f_b3c4 }
+        if c0 & 0x08 != 0 { c ^= 0xae_2eab_e2a8 }
+        if c0 & 0x10 != 0 { c ^= 0x1e_4f43_e470 }
     }
     c ^ 1
 }
@@ -146,8 +146,8 @@ fn calculate_checksum(prefix: &str, payload: impl Iterator<Item=u8>) -> Vec<u8> 
             .chain(payload)
             .chain([0, 0, 0, 0, 0, 0, 0, 0].iter().cloned())
     );
-    (0..8).into_iter()
-        .map(|i| ((poly >> 5 * (7 - i)) & 0x1f) as u8)
+    (0..8)
+        .map(|i| ((poly >> (5 * (7 - i))) & 0x1f) as u8)
         .collect()
 }
 
@@ -191,7 +191,7 @@ fn to_cash_addr(prefix: &str, addr_type: AddressType, addr_bytes: &[u8; 20]) -> 
 
 fn from_cash_addr(addr_string: &str) -> Result<([u8; 20], AddressType, String), AddressError> {
     let addr_string = addr_string.to_ascii_lowercase();
-    let (prefix, payload_base32) = if let Some(pos) = addr_string.find(":") {
+    let (prefix, payload_base32) = if let Some(pos) = addr_string.find(':') {
         let (prefix, payload_base32) = addr_string.split_at(pos + 1);
         (&prefix[..prefix.len() - 1], payload_base32)
     } else {

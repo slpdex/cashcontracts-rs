@@ -14,9 +14,9 @@ impl Op {
             Op::Push(vec) => {
                 match vec.len() {
                     0 ..= 0x4b        => vec.len() as u8,
-                    0 ..= 0xff        => 0x4c,
-                    0 ..= 0xffff      => 0x4d,
-                    0 ..= 0xffff_ffff => 0x4e,
+                    0x4c ..= 0xff     => 0x4c,
+                    0x100 ..= 0xffff  => 0x4d,
+                    0x10000 ..= 0xffff_ffff => 0x4e,
                     _                 => unimplemented!(),
                 }
             },
@@ -26,7 +26,7 @@ impl Op {
 
     pub fn write_to_stream<W: io::Write>(&self, write: &mut W, is_minimal_push: bool) -> io::Result<()> {
         if let Op::Push(vec) = self {
-            if vec.len() == 0 && !is_minimal_push {
+            if vec.is_empty() && !is_minimal_push {
                 write.write_u8(0x4c)?;
                 return write.write_u8(0)
             }
@@ -41,7 +41,7 @@ impl Op {
                 len @ (0 ..= 0xffff_ffff) => { write.write_u32::<LittleEndian>(len as u32)? },
                 _ => {},
             };
-            write.write(vec)?;
+            write.write_all(vec)?;
         } else {
             write.write_u8(self.code())?;
         }

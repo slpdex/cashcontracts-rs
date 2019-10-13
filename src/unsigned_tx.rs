@@ -109,7 +109,7 @@ impl UnsignedTx {
         {
             let mut outpoints_serialized = Vec::new();
             for input in self.inputs.iter() {
-                outpoints_serialized.write(&input.outpoint.tx_hash).unwrap();
+                outpoints_serialized.write_all(&input.outpoint.tx_hash).unwrap();
                 outpoints_serialized.write_u32::<LittleEndian>(input.outpoint.vout).unwrap();
             }
             hash_prevouts.copy_from_slice(&double_sha256(&outpoints_serialized));
@@ -134,13 +134,13 @@ impl UnsignedTx {
         for input in self.inputs.iter() {
             pre_images.push(PreImage {
                 version: self.version,
-                hash_prevouts: hash_prevouts.clone(),
-                hash_sequence: hash_sequence.clone(),
+                hash_prevouts,
+                hash_sequence,
                 outpoint: input.outpoint.clone(),
                 script_code: input.output.script_code(),
                 value: input.output.value(),
                 sequence: input.sequence,
-                hash_outputs: hash_outputs.clone(),
+                hash_outputs,
                 lock_time: self.lock_time,
                 sighash_type,
             });
@@ -276,20 +276,20 @@ impl PreImage {
                                            write: &mut W,
                                            flags: PreImageWriteFlags) -> std::io::Result<()> {
         if flags.version       { write.write_i32::<LittleEndian>(self.version)?; }
-        if flags.hash_prevouts { write.write(&self.hash_prevouts)?; }
-        if flags.hash_sequence { write.write(&self.hash_sequence)?; }
+        if flags.hash_prevouts { write.write_all(&self.hash_prevouts)?; }
+        if flags.hash_sequence { write.write_all(&self.hash_sequence)?; }
         if flags.outpoint {
-            write.write(&self.outpoint.tx_hash)?;
+            write.write_all(&self.outpoint.tx_hash)?;
             write.write_u32::<LittleEndian>(self.outpoint.vout)?;
         }
         if flags.script_code {
             let script = self.script_code.to_vec_sig();
             write_var_int(write, script.len() as u64)?;
-            write.write(&script)?;
+            write.write_all(&script)?;
         }
         if flags.value        { write.write_u64::<LittleEndian>(self.value)?; }
         if flags.sequence     { write.write_u32::<LittleEndian>(self.sequence)?; }
-        if flags.hash_outputs { write.write(&self.hash_outputs)?; }
+        if flags.hash_outputs { write.write_all(&self.hash_outputs)?; }
         if flags.lock_time    { write.write_u32::<LittleEndian>(self.lock_time)?; }
         if flags.sighash_type { write.write_u32::<LittleEndian>(self.sighash_type)?; }
         Ok(())

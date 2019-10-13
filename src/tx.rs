@@ -61,6 +61,10 @@ impl TxInput {
         TxInput { outpoint, script, sequence }
     }
 
+    pub fn script(&self) -> &Script {
+        &self.script
+    }
+
     pub fn read_from_stream<R: io::Read>(read: &mut R) -> io::Result<Self> {
         let mut tx_hash = [0; 32];
         read.read_exact(&mut tx_hash)?;
@@ -72,17 +76,17 @@ impl TxInput {
         Ok(TxInput {
             outpoint: TxOutpoint {tx_hash, vout},
             script: Script::from_serialized(&script)
-                .ok_or(io::Error::new(io::ErrorKind::InvalidData, "Invalid script"))?,
+                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid script"))?,
             sequence,
         })
     }
 
     pub fn write_to_stream<W: io::Write>(&self, write: &mut W) -> io::Result<()> {
-        write.write(&self.outpoint.tx_hash)?;
+        write.write_all(&self.outpoint.tx_hash)?;
         write.write_u32::<LittleEndian>(self.outpoint.vout)?;
         let script = self.script.to_vec();
         write_var_int(write, script.len() as u64)?;
-        write.write(&script)?;
+        write.write_all(&script)?;
         write.write_u32::<LittleEndian>(self.sequence)?;
         Ok(())
     }
@@ -102,7 +106,7 @@ impl TxOutput {
         Ok(TxOutput {
             value,
             script: Script::from_serialized(&script)
-                .ok_or(io::Error::new(io::ErrorKind::InvalidData, "Invalid script"))?,
+                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid script"))?,
         })
     }
 
@@ -110,12 +114,12 @@ impl TxOutput {
         write.write_u64::<LittleEndian>(self.value)?;
         let script = self.script.to_vec();
         write_var_int(write, script.len() as u64)?;
-        write.write(&script)?;
+        write.write_all(&script)?;
         Ok(())
     }
 
     pub fn script(&self) -> &Script {
-        return &self.script;
+        &self.script
     }
 }
 

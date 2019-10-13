@@ -12,6 +12,7 @@ pub struct P2AscendingNonce {
     pub old_value: u64,
     pub owner_pk: Vec<u8>,
     pub old_nonce: i32,
+    pub dust_limit: i32,
     pub spend_params: Option<P2AscendingNonceSpendParams>,
 }
 
@@ -84,14 +85,35 @@ impl P2AscendingNonce {
                 Code(Op2Dup),
                 Code(OpSwap),
                 Code(OpSub),
-                Push(vec![8]),  // (=value size)
-                Code(OpNum2Bin),
-                Push(vec![23, OpHash160 as u8, 20]),  // (=p2shpre)
-                Code(OpFromAltStack),
-                Push(vec![OpEqual as u8]),
-                Code(OpCat),
-                Code(OpCat),
-                Code(OpCat),
+                Code(OpDup),
+                Push(encode_int(self.dust_limit)),
+                Code(OpGreaterThanOrEqual),
+            ]);
+            ops.push(Code(OpIf));
+            {
+                // case: above dust limit
+                ops.append(&mut vec![
+                    Push(vec![8]),  // (=value size)
+                    Code(OpNum2Bin),
+                    Push(vec![23, OpHash160 as u8, 20]),  // (=p2shpre)
+                    Code(OpFromAltStack),
+                    Push(vec![OpEqual as u8]),
+                    Code(OpCat),
+                    Code(OpCat),
+                    Code(OpCat),
+                ]);
+            }
+            ops.push(Code(OpElse));
+            {
+                // case: below dust limit
+                ops.append(&mut vec![
+                    Code(OpFromAltStack),
+                    Code(Op2Drop),
+                    Push(vec![]),
+                ]);
+            }
+            ops.push(Code(OpEndIf));
+            ops.append(&mut vec![
                 Push(encode_int(7)),  // <outputspost>
                 Code(OpRoll),
                 Code(OpCat),
